@@ -3,4 +3,11 @@
   <groupId>org.asv</groupId>
   <artifactId>toponym-clustering</artifactId>
   <version>0.0.1-SNAPSHOT</version>
+  <dependencies>
+  	<dependency>
+  		<groupId>net.sf.supercsv</groupId>
+  		<artifactId>super-csv</artifactId>
+  		<version>2.4.0</version>
+  	</dependency>
+  </dependencies>
 </project>

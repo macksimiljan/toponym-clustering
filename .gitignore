@@ -9,3 +9,6 @@
 # Maven
 log/
 target/
+
+# Resources
+src/main/resources/
