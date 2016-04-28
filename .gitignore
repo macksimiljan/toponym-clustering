@@ -11,4 +11,8 @@ log/
 target/
 
 # Resources
-src/main/resources/
+src/main/resources/extractedData.csv
+src/main/resources/worldcitiespop.txt
+
+# Database
+neo4j_db

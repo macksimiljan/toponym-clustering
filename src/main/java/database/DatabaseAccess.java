@@ -6,6 +6,7 @@ import java.io.IOException;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
 import org.neo4j.io.fs.FileUtils;
+import org.neo4j.logging.slf4j.Slf4jLogProvider;
 
 /**
  * Manages the connection to the database.
@@ -29,7 +30,10 @@ public abstract class DatabaseAccess {
 	public static GraphDatabaseService getGraphDb() {
 		// initializes only once for the same database
 		if (graphDb == null) {
-			graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(new File(DB_PATH));
+			graphDb = new GraphDatabaseFactory()
+					.setUserLogProvider(new Slf4jLogProvider()) // use SLF4J for log output
+					.newEmbeddedDatabase(new File(DB_PATH)); // access the database from file system
+			
 			registerShutdownHook(graphDb);
 		}
 		return graphDb;
