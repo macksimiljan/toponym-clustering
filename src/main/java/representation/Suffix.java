@@ -1,5 +1,7 @@
 package representation;
 
+import org.neo4j.graphdb.DynamicLabel;
+import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 
 /**
@@ -9,10 +11,12 @@ import org.neo4j.graphdb.Node;
  *
  */
 public class Suffix {
+	
+	/** Label of the domain entity. */
+	public static final Label LABEL = DynamicLabel.label("suffix");
 
 	/** Property label 'str'. */
 	public static final String STR = "str";
-
 	/** The underlying node of this city. */
 	private final Node underlyingNode;
 
