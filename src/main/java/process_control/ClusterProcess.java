@@ -23,9 +23,9 @@ public class ClusterProcess {
 	static Logger log = Logger.getLogger(ClusterProcess.class);
 
 	/** Location of the raw data in the file system, e.g. worldcitiespop.txt */
-	static final String locationRawData = "./src/main/resources/worldcitiespop.txt";
+	static final String locationRawData = "./src/main/resources/worldcitiespop_small.txt";
 	/** Location of the extracted data in the file system. */
-	static final String locationExtractedData = "./src/main/resources/extractedData.csv";
+	static final String locationExtractedData = "./src/main/resources/extractedData_small.csv";
 
 	/**
 	 * Main steps for clustering toponyms.
