@@ -5,13 +5,16 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.helpers.collection.IteratorUtil;
 
 import representation.City;
+import representation.EdgeTypes;
 import representation.Suffix;
 
 /**
@@ -32,6 +35,14 @@ public class GraphProperties {
 	private long countSuffixNodes;
 	/** Set of the root nodes, i.e. final letter. */
 	private Set<Suffix> rootNodes;
+	/** Suffixes which are suffix of exactly one suffix. */
+	private Set<Suffix> lonelySuffixes;
+	/** Suffixes which are suffix of 2-5 (direct) suffixes. */
+	private Set<Suffix> normalSuffixes;
+	/** Suffixes which are suffix of 6-15 (direct) suffixes. */
+	private Set<Suffix> frequentSuffixes;
+	/** Suffixes which are suffix of 16 or more (direct) suffixes. */
+	private Set<Suffix> veryFrequentSuffixes;
 
 	/**
 	 * Creates manager for graph properties.
@@ -45,6 +56,10 @@ public class GraphProperties {
 		this.countCityNodes = -1;
 		this.countSuffixNodes = -1;
 		this.rootNodes = null;
+		this.lonelySuffixes = null;
+		this.normalSuffixes = null;
+		this.frequentSuffixes = null;
+		this.veryFrequentSuffixes = null;
 	}
 
 	/**
@@ -125,7 +140,52 @@ public class GraphProperties {
 		}
 		return this.rootNodes;
 	}
-	
-	
+
+	public Set<Suffix> getLonelySuffixes() {
+		if (this.lonelySuffixes == null)
+			determineSuffixFrequency();
+		return this.lonelySuffixes;
+	}
+
+	public Set<Suffix> getNormalSuffixes() {
+		if (this.normalSuffixes == null)
+			determineSuffixFrequency();
+		return this.normalSuffixes;
+	}
+
+	public Set<Suffix> getFrequentSuffixes() {
+		if (this.frequentSuffixes == null)
+			determineSuffixFrequency();
+		return this.frequentSuffixes;
+	}
+
+	public Set<Suffix> getVeryFrequentSuffixes() {
+		if (this.veryFrequentSuffixes == null)
+			determineSuffixFrequency();
+		return this.veryFrequentSuffixes;
+	}
+
+	private void determineSuffixFrequency() {
+		lonelySuffixes = new HashSet<Suffix>();
+		normalSuffixes = new HashSet<Suffix>();
+		frequentSuffixes = new HashSet<Suffix>();
+		veryFrequentSuffixes = new HashSet<Suffix>();
+
+		try (Transaction tx = graphDb.beginTx();) {
+			ResourceIterator<Node> iterSuffixes = graphDb.findNodes(Suffix.LABEL);
+			while (iterSuffixes.hasNext()) {
+				Node n = iterSuffixes.next();
+				int degree = n.getDegree(EdgeTypes.IS_SUFFIX_OF, Direction.OUTGOING);
+				if (degree == 1)
+					lonelySuffixes.add(new Suffix(n));
+				else if (degree >= 2 && degree <= 5)
+					normalSuffixes.add(new Suffix(n));
+				else if (degree >= 6 && degree <= 15)
+					frequentSuffixes.add(new Suffix(n));
+				else if (degree >= 16)
+					veryFrequentSuffixes.add(new Suffix(n));
+			}
+		}
+	}
 
 }

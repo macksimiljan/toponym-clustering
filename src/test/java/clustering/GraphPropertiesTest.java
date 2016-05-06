@@ -1,6 +1,7 @@
 package clustering;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -76,6 +77,20 @@ public class GraphPropertiesTest {
 		expected.add("z");
 		
 		assertEquals(expected, actual);
+	}
+	
+	@Test
+	public void testGetFrequencyOfSuffixes() {
+		int act = prop.getLonelySuffixes().size();
+		System.out.println("|lonely|:\t"+act);
+		act = prop.getNormalSuffixes().size();
+		System.out.println("|normal|:\t"+act);
+		act = prop.getFrequentSuffixes().size();
+		System.out.println("|frequent|:\t"+act);
+		act = prop.getVeryFrequentSuffixes().size();
+		System.out.println("|veryFrequ|:\t"+act);
+		
+		fail("to be implemented");
 	}
 
 }
