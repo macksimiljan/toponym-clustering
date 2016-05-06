@@ -26,6 +26,8 @@ public class ClusterProcess {
 	static final String locationRawData = "./src/main/resources/worldcitiespop_small.txt";
 	/** Location of the extracted data in the file system. */
 	static final String locationExtractedData = "./src/main/resources/extractedData_small.csv";
+	/** 'true' iff the graph database is already loaded. */
+	static final boolean isGraphLoaded = true;
 
 	/**
 	 * Main steps for clustering toponyms.
@@ -37,27 +39,31 @@ public class ClusterProcess {
 		System.out.println("===== Toponym Clustering =====\n");
 		log.info("start");
 		long timeStart = System.currentTimeMillis();
-		
-		try {
-			DatabaseAccess.dropDatabase();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		
+
 		GraphDatabaseService graphDb = DatabaseAccess.getGraphDb();
-		try {
-			List<Map<String, String>> data = Extraction.extractFromFreeWorldCitiesDatabase(locationRawData);
-			log.info("Writing to " + locationExtractedData + " ... ");
-			Extraction.writeToCsvFile(locationExtractedData, data);
-			log.info("Loading data to neo4j ... ");
-			Load.loadCityAndSuffix(graphDb, data);
-		} catch (IOException e) {
-			e.printStackTrace();
+		
+		// 1: ETL
+		if (!isGraphLoaded) {
+			try {
+				DatabaseAccess.dropDatabase();
+				// extraction
+				List<Map<String, String>> data = Extraction.extractFromFreeWorldCitiesDatabase(locationRawData);
+				log.info("Writing to " + locationExtractedData + " ... ");
+				Extraction.writeToCsvFile(locationExtractedData, data);
+				// load
+				log.info("Loading data to neo4j ... ");
+				Load.loadCityAndSuffix(graphDb, data);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
+		
+		// 2: Suffix-Clustering
+		
 
 		// clean up
 		DatabaseAccess.closeGraphDb();
-		
+
 		long timeEnd = System.currentTimeMillis();
 		log.info("end");
 		System.out.println("\n===== End (" + (timeEnd - timeStart) + "ms) =====");

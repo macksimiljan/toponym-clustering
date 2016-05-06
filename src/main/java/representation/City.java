@@ -14,7 +14,7 @@ import org.neo4j.graphdb.Relationship;
  *
  */
 public class City {
-	
+
 	/** Label of the domain entity. */
 	public static final Label LABEL = DynamicLabel.label("city");
 
@@ -78,13 +78,13 @@ public class City {
 		}
 		if (numberOfNames == 1) {
 			Relationship edge = this.underlyingNode.getSingleRelationship(EdgeTypes.IS_NAME_OF, Direction.INCOMING);
-			return (String) edge.getStartNode().getProperty(Suffix.STR);
+			return (String) edge.getStartNode().getProperty(Suffix.KEY_STR);
 		} else {
 			String name = "";
 			Iterable<Relationship> edges = this.underlyingNode.getRelationships(Direction.INCOMING,
 					EdgeTypes.IS_NAME_OF);
 			for (Relationship edge : edges) {
-				name += edge.getStartNode().getProperty(Suffix.STR) + ",";
+				name += edge.getStartNode().getProperty(Suffix.KEY_STR) + ",";
 			}
 			return name.substring(0, name.length() - 1);
 		}

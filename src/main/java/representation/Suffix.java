@@ -11,12 +11,12 @@ import org.neo4j.graphdb.Node;
  *
  */
 public class Suffix {
-	
+
 	/** Label of the domain entity. */
 	public static final Label LABEL = DynamicLabel.label("suffix");
 
 	/** Property label 'str'. */
-	public static final String STR = "str";
+	public static final String KEY_STR = "str";
 	/** The underlying node of this city. */
 	private final Node underlyingNode;
 
@@ -45,7 +45,7 @@ public class Suffix {
 	 * @return A string representing the suffix.
 	 */
 	public String getStr() {
-		return (String) this.underlyingNode.getProperty(STR);
+		return (String) this.underlyingNode.getProperty(KEY_STR);
 	}
 
 	@Override
