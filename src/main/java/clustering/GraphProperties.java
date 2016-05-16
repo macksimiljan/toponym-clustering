@@ -8,6 +8,7 @@ import java.util.Set;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
@@ -43,6 +44,8 @@ public class GraphProperties {
 	private Set<Suffix> frequentSuffixes;
 	/** Suffixes which are suffix of 16 or more (direct) suffixes. */
 	private Set<Suffix> veryFrequentSuffixes;
+
+	private long propertyAssignedNodes = 0;
 
 	/**
 	 * Creates manager for graph properties.
@@ -107,7 +110,7 @@ public class GraphProperties {
 	 * @return Count of suffix nodes.
 	 */
 	public long getCountSuffixNodes() {
-		if (this.countCityNodes == -1) {
+		if (this.countSuffixNodes == -1) {
 			// cypher query
 			final String query = "MATCH (node:" + Suffix.LABEL + ") RETURN COUNT(node) AS countSuffixNodes";
 			try (Transaction tx = graphDb.beginTx(); Result rs = graphDb.execute(query)) {
@@ -141,30 +144,55 @@ public class GraphProperties {
 		return this.rootNodes;
 	}
 
+	/**
+	 * Get suffixes which have exactly one suffix child.
+	 * 
+	 * @return One-child suffixes.
+	 */
 	public Set<Suffix> getLonelySuffixes() {
 		if (this.lonelySuffixes == null)
 			determineSuffixFrequency();
 		return this.lonelySuffixes;
 	}
 
+	/**
+	 * Get suffixes which have 2 to 5 suffix children.
+	 * 
+	 * @return 2-to-5 suffixes.
+	 */
 	public Set<Suffix> getNormalSuffixes() {
 		if (this.normalSuffixes == null)
 			determineSuffixFrequency();
 		return this.normalSuffixes;
 	}
 
+	/**
+	 * Get suffixes which have 6 to 15 suffix children.
+	 * 
+	 * @return 6-to-15 suffixes.
+	 */
 	public Set<Suffix> getFrequentSuffixes() {
 		if (this.frequentSuffixes == null)
 			determineSuffixFrequency();
 		return this.frequentSuffixes;
 	}
 
+	/**
+	 * Get suffixes which have 16 or more suffix children.
+	 * 
+	 * @return 16+ suffixes.
+	 */
 	public Set<Suffix> getVeryFrequentSuffixes() {
 		if (this.veryFrequentSuffixes == null)
 			determineSuffixFrequency();
 		return this.veryFrequentSuffixes;
 	}
 
+	/**
+	 * Categorizes suffix nodes according to their number of children into
+	 * lonely (1 child), normal (2-5 children), frequent (6-15 children), and
+	 * very frequent (16 and more children).
+	 */
 	private void determineSuffixFrequency() {
 		lonelySuffixes = new HashSet<Suffix>();
 		normalSuffixes = new HashSet<Suffix>();
@@ -186,6 +214,113 @@ public class GraphProperties {
 					veryFrequentSuffixes.add(new Suffix(n));
 			}
 		}
+	}
+
+	/**
+	 * Adds the property 'subsumed cities' and its value to the graph. That
+	 * property specifies how many cities ends with the current node.
+	 */
+	public void addPropertySubsumedCities() {
+		// check whether property is already present
+		boolean isComplete = true;
+		for (Suffix root : getRootNodes()) {
+			try (Transaction tx = this.graphDb.beginTx()) {
+				isComplete = isComplete && root.getUnderlyingNode().hasProperty(Suffix.KEY_SUBSCITIES);
+			}
+		}
+		System.out.println("'subsumedCities' is property of all suffix nodes:" + isComplete);
+		if (isComplete)
+			return;
+
+		// add property to each suffix node from bottom to top
+		Set<Suffix> bottomLayer = getCityNames();
+		while (bottomLayer.size() > 0) {
+			bottomLayer = countSubsumedCities(bottomLayer);
+			System.out.println();
+		}
+	}
+
+	/**
+	 * Counts the cities which belongs to each node of the current layer. That
+	 * value is computed by summing up the subsumed city count of the child
+	 * nodes.
+	 * 
+	 * @param bottomLayer
+	 *            The current layer. For that layer the property will be added.
+	 * @return The layer above the current layer, i.e. a set of parent nodes.
+	 */
+	private Set<Suffix> countSubsumedCities(Set<Suffix> bottomLayer) {
+		Set<Suffix> nextLayer = new HashSet<Suffix>();
+
+		// iterate over each suffix node of the current layer
+		for (Suffix s : bottomLayer) {
+			try (Transaction tx = this.graphDb.beginTx()) {
+				// get outgoing edges
+				Iterator<Relationship> iterator = s.getUnderlyingNode().getRelationships(Direction.OUTGOING).iterator();
+				int value = 0;
+
+				// iterate over each edge of the current suffix node
+				while (iterator.hasNext()) {
+					Relationship edge = iterator.next();
+					if (edge.isType(EdgeTypes.IS_NAME_OF)) {
+						// basic bottom layer: suffix = city name
+						value = s.getUnderlyingNode().getDegree(EdgeTypes.IS_NAME_OF);
+						break;
+					} else {
+						// each deeper node has to have the property
+						if (edge.getEndNode().hasProperty(Suffix.KEY_SUBSCITIES)) {
+							value += (Integer) edge.getEndNode().getProperty(Suffix.KEY_SUBSCITIES);
+						} else {
+							value = 0;
+							break;
+						}
+					}
+				} // end iteration over edges
+
+				// add property to node
+				if (value > 0) {
+					propertyAssignedNodes++;
+					if (propertyAssignedNodes % 1000 == 0)
+						System.out.println("\t" + propertyAssignedNodes);
+					s.getUnderlyingNode().setProperty(Suffix.KEY_SUBSCITIES, value);
+
+					// determine nodes for the next layer
+					iterator = s.getUnderlyingNode().getRelationships(Direction.INCOMING).iterator();
+					while (iterator.hasNext()) {
+						Relationship edge = iterator.next();
+						Suffix node = new Suffix(edge.getStartNode());
+						nextLayer.add(node);
+					}
+				}
+				// System.out.println(" properties: " +
+				// s.getUnderlyingNode().getAllProperties());
+
+				// commit changes
+				tx.success();
+			}
+		} // end iteration over suffix nodes
+
+		return nextLayer;
+	}
+
+	/**
+	 * Returns the name of all cities.
+	 * 
+	 * @return Suffix nodes representing the city names.
+	 */
+	public Set<Suffix> getCityNames() {
+		Set<Suffix> cityNames = new HashSet<Suffix>();
+
+		final String query = "MATCH (n)-[:" + EdgeTypes.IS_NAME_OF + "]->() RETURN n";
+		try (Transaction tx = graphDb.beginTx(); Result rs = graphDb.execute(query)) {
+			Iterator<Node> it = rs.columnAs("n");
+			for (Node node : IteratorUtil.asIterable(it)) {
+				Suffix suffix = new Suffix(node);
+				cityNames.add(suffix);
+			}
+		}
+
+		return cityNames;
 	}
 
 }

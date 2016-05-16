@@ -28,13 +28,13 @@ public class GraphPropertiesTest {
 	/** Database. */
 	static GraphDatabaseService db;
 
-	/** Initialize graph properties: use the small dataset!. */
+	/** Initialize graph properties: use the small dataset! */
 	@BeforeClass
 	public static void initGraphProp() {
 		db = DatabaseAccess.getGraphDb();
 		prop = new GraphProperties(db);
 	}
-	
+
 	/** Close database. */
 	@AfterClass
 	public static void closeDb() {
@@ -55,41 +55,79 @@ public class GraphPropertiesTest {
 		assertEquals(20, actual);
 	}
 
-	/** Test method for {@link GraphProperties#getCountSuffixNodes()}*/
+	/** Test method for {@link GraphProperties#getCountSuffixNodes()} */
 	@Test
 	public void testGetCountSuffixNodes() {
 		long actual = prop.getCountSuffixNodes();
 		assertEquals(94, actual);
 	}
-	
-	/** Test method for {@link GraphProperties#getRootNodes()}*/
+
+	/** Test method for {@link GraphProperties#getRootNodes()} */
 	@Test
 	public void testGetRootNodes() {
 		Set<Suffix> roots = prop.getRootNodes();
 		Set<String> actual = new HashSet<String>();
 		try (Transaction tx = db.beginTx();) {
-		for (Suffix root : roots)
-			actual.add(root.getStr());
+			for (Suffix root : roots)
+				actual.add(root.getStr());
 		}
-		
+
 		Set<String> expected = new HashSet<String>();
 		expected.add("l");
 		expected.add("z");
-		
+
 		assertEquals(expected, actual);
 	}
-	
+
+	/**
+	 * Test method for {@link GraphProperties#getLonelySuffixes()} etc.
+	 */
 	@Test
 	public void testGetFrequencyOfSuffixes() {
 		int act = prop.getLonelySuffixes().size();
-		System.out.println("|lonely|:\t"+act);
+		assertEquals(70, act);
 		act = prop.getNormalSuffixes().size();
-		System.out.println("|normal|:\t"+act);
+		assertEquals(10, act);
 		act = prop.getFrequentSuffixes().size();
-		System.out.println("|frequent|:\t"+act);
+		assertEquals(0, act);
 		act = prop.getVeryFrequentSuffixes().size();
-		System.out.println("|veryFrequ|:\t"+act);
-		
+		assertEquals(0, act);
+	}
+
+	/**
+	 * Test method for {@link GraphProperties#addPropertySubsumedCities()}.
+	 */
+	@Test
+	public void testAddPropertySubsumedCities() {
+		prop.addPropertySubsumedCities();
+		// System.out.println();
+		// try (Transaction tx = db.beginTx()) {
+		// ResourceIterator<Node> nodes = db.findNodes(Suffix.LABEL);
+		// while (nodes.hasNext()) {
+		// Node n = nodes.next();
+		// System.out.println(n.getId());
+		// Map<String, Object> properties = n.getProperties();
+		// System.out.println(" |properties|: "+properties.size());
+		// for (String key : properties.keySet()) {
+		// System.out.println(" "+key + ": " + properties.get(key));
+		// }
+		// }
+		// }
+		fail("to be implemented");
+	}
+
+	/**
+	 * Test method for {@link GraphProperties#getCityNames()}.
+	 */
+	@Test
+	public void testGetCityNames() {
+		Set<Suffix> names = prop.getCityNames();
+		for (Suffix s : names) {
+			System.out.println();
+			try (Transaction tx = db.beginTx()) {
+				System.out.println(s.getUnderlyingNode().getProperty(Suffix.KEY_STR));
+			}
+		}
 		fail("to be implemented");
 	}
 

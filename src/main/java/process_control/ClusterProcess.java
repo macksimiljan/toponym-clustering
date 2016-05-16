@@ -7,6 +7,7 @@ import java.util.Map;
 import org.apache.log4j.Logger;
 import org.neo4j.graphdb.GraphDatabaseService;
 
+import clustering.GraphProperties;
 import database.DatabaseAccess;
 import etl.Extraction;
 import etl.Load;
@@ -45,7 +46,7 @@ public class ClusterProcess {
 		// 1: ETL
 		if (!isGraphLoaded) {
 			try {
-				DatabaseAccess.dropDatabase();
+//				DatabaseAccess.dropDatabase();
 				// extraction
 				List<Map<String, String>> data = Extraction.extractFromFreeWorldCitiesDatabase(locationRawData);
 				log.info("Writing to " + locationExtractedData + " ... ");
@@ -58,8 +59,21 @@ public class ClusterProcess {
 			}
 		}
 		
-		// 2: Suffix-Clustering
+		// 2: some properties of the graph
+		GraphProperties properties = new GraphProperties(graphDb);
+		long countCityNodes = properties.getCountCityNodes();
+		long countSuffixNodes = properties.getCountSuffixNodes();
+		int countLonelySuffixes = properties.getLonelySuffixes().size();
+		int countNormalSuffixes = properties.getNormalSuffixes().size();
+		int countFrequentSuffixes = properties.getFrequentSuffixes().size();
+		int countVeryFrequentSuffixes = properties.getVeryFrequentSuffixes().size();
 		
+		System.out.println("countCityNodes:\t\t"+countCityNodes+
+				"\ncountSuffixNodes:\t"+countSuffixNodes+
+				"\ncountLonelySuffixes:\t"+countLonelySuffixes+
+				"\ncountNormalSuffixes:\t"+countNormalSuffixes+
+				"\ncountFrequentSuffixes:\t"+countFrequentSuffixes+
+				"\ncountVeryFreqSuffixes:\t"+countVeryFrequentSuffixes);
 
 		// clean up
 		DatabaseAccess.closeGraphDb();

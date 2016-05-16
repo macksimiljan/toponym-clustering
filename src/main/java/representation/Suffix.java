@@ -3,6 +3,9 @@ package representation;
 import org.neo4j.graphdb.DynamicLabel;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Transaction;
+
+import database.DatabaseAccess;
 
 /**
  * Domain entity of a suffix node.
@@ -17,6 +20,13 @@ public class Suffix {
 
 	/** Property label 'str'. */
 	public static final String KEY_STR = "str";
+
+	/**
+	 * Property label 'subsumedCities', i.e. the number of cities which are
+	 * associated to this suffix.
+	 */
+	public static final String KEY_SUBSCITIES = "subsumedCities";
+
 	/** The underlying node of this city. */
 	private final Node underlyingNode;
 
@@ -35,7 +45,7 @@ public class Suffix {
 	 * 
 	 * @return The underlying node.
 	 */
-	protected Node getUnderlyingNode() {
+	public Node getUnderlyingNode() {
 		return underlyingNode;
 	}
 
@@ -45,7 +55,11 @@ public class Suffix {
 	 * @return A string representing the suffix.
 	 */
 	public String getStr() {
-		return (String) this.underlyingNode.getProperty(KEY_STR);
+		String s = null;
+		try (Transaction tx = DatabaseAccess.getGraphDb().beginTx()) {
+			s = (String) this.underlyingNode.getProperty(KEY_STR);
+		}
+		return s;
 	}
 
 	@Override
