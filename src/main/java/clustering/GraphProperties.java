@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.log4j.Logger;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
@@ -14,6 +15,7 @@ import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.helpers.collection.IteratorUtil;
 
+import process_control.ClusterProcess;
 import representation.City;
 import representation.EdgeTypes;
 import representation.Suffix;
@@ -25,6 +27,9 @@ import representation.Suffix;
  *
  */
 public class GraphProperties {
+	
+	/** Log4j Logger */
+	private static Logger log = ClusterProcess.log;
 
 	/** The graph database. */
 	private GraphDatabaseService graphDb;
@@ -45,6 +50,7 @@ public class GraphProperties {
 	/** Suffixes which are suffix of 16 or more (direct) suffixes. */
 	private Set<Suffix> veryFrequentSuffixes;
 
+	/** for testing ... */
 	private long propertyAssignedNodes = 0;
 
 	/**
@@ -228,15 +234,15 @@ public class GraphProperties {
 				isComplete = isComplete && root.getUnderlyingNode().hasProperty(Suffix.KEY_SUBSCITIES);
 			}
 		}
-		System.out.println("'subsumedCities' is property of all suffix nodes:" + isComplete);
+		log.info("'subsumedCities' is property of all suffix nodes:" + isComplete);
 		if (isComplete)
 			return;
 
 		// add property to each suffix node from bottom to top
 		Set<Suffix> bottomLayer = getCityNames();
 		while (bottomLayer.size() > 0) {
+			log.info("bottomLayer.size(): "+bottomLayer.size());
 			bottomLayer = countSubsumedCities(bottomLayer);
-			System.out.println();
 		}
 	}
 
@@ -254,53 +260,77 @@ public class GraphProperties {
 
 		// iterate over each suffix node of the current layer
 		for (Suffix s : bottomLayer) {
+			// 1: get suffix node and outgoing edges
+			Node currentSuffix = null;
+			Iterator<Relationship> iterator = null;
+			int value = 0;
 			try (Transaction tx = this.graphDb.beginTx()) {
-				// get outgoing edges
-				Iterator<Relationship> iterator = s.getUnderlyingNode().getRelationships(Direction.OUTGOING).iterator();
-				int value = 0;
-
-				// iterate over each edge of the current suffix node
-				while (iterator.hasNext()) {
-					Relationship edge = iterator.next();
-					if (edge.isType(EdgeTypes.IS_NAME_OF)) {
-						// basic bottom layer: suffix = city name
-						value = s.getUnderlyingNode().getDegree(EdgeTypes.IS_NAME_OF);
-						break;
-					} else {
-						// each deeper node has to have the property
-						if (edge.getEndNode().hasProperty(Suffix.KEY_SUBSCITIES)) {
-							value += (Integer) edge.getEndNode().getProperty(Suffix.KEY_SUBSCITIES);
-						} else {
-							value = 0;
-							break;
-						}
-					}
-				} // end iteration over edges
-
-				// add property to node
-				if (value > 0) {
-					propertyAssignedNodes++;
-					if (propertyAssignedNodes % 1000 == 0)
-						System.out.println("\t" + propertyAssignedNodes);
-					s.getUnderlyingNode().setProperty(Suffix.KEY_SUBSCITIES, value);
-
+				currentSuffix = s.getUnderlyingNode();
+				
+				// suffix already has the property, e.g., because of canceled previous execution				
+				if (currentSuffix.hasProperty(Suffix.KEY_SUBSCITIES)) {
 					// determine nodes for the next layer
-					iterator = s.getUnderlyingNode().getRelationships(Direction.INCOMING).iterator();
+					iterator = currentSuffix.getRelationships(Direction.INCOMING).iterator();
 					while (iterator.hasNext()) {
 						Relationship edge = iterator.next();
 						Suffix node = new Suffix(edge.getStartNode());
 						nextLayer.add(node);
 					}
-				}
-				// System.out.println(" properties: " +
-				// s.getUnderlyingNode().getAllProperties());
-
-				// commit changes
-				tx.success();
+					continue; // you are done with this suffix
+				} 
+				
+				// get outgoing edges
+				iterator = currentSuffix.getRelationships(Direction.OUTGOING).iterator();				
 			}
+			
+			// 2: iterate over each edge of the current suffix node
+			while (iterator.hasNext()) {
+				Relationship edge = iterator.next();
+				try (Transaction tx = this.graphDb.beginTx()) {
+					if (edge.isType(EdgeTypes.IS_NAME_OF)) {
+						// basic bottom layer: suffix = city name
+						// this is the the case only for the first layer
+						value = currentSuffix.getDegree(EdgeTypes.IS_NAME_OF);
+						break;
+					} else {
+						// for all other nodes which are not direct parent of cities
+						if (edge.getEndNode().hasProperty(Suffix.KEY_SUBSCITIES)) {
+							// sum up all subsumedCities-values of the parents
+							value += (Integer) edge.getEndNode().getProperty(Suffix.KEY_SUBSCITIES);
+						} else {
+							// if at least one parent does not have a proper subsumedCities-value yet
+							value = 0;
+							break;
+						}
+					}
+				}
+			} // end iteration over edges
+
+			// 3: add property to node
+			if (value > 0) {				
+				propertyAssignedNodes++;
+				if (propertyAssignedNodes % 1000 == 0)
+					log.info("#nodes with property 'subsumedCities': "+propertyAssignedNodes);
+				
+				try (Transaction tx = this.graphDb.beginTx()) {
+					currentSuffix.setProperty(Suffix.KEY_SUBSCITIES, value);
+
+					// determine nodes for the next layer
+					iterator = currentSuffix.getRelationships(Direction.INCOMING).iterator();
+					while (iterator.hasNext()) {
+						Relationship edge = iterator.next();
+						Suffix node = new Suffix(edge.getStartNode());
+						nextLayer.add(node);
+					}
+					// commit changes
+					tx.success();
+				}
+			}
+			// System.out.println(" properties: " + currentSuffix.getAllProperties());
 		} // end iteration over suffix nodes
 
 		return nextLayer;
+
 	}
 
 	/**

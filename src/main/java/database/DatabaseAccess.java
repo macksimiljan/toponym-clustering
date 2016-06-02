@@ -56,6 +56,7 @@ public abstract class DatabaseAccess {
 	 */
 	public static void dropDatabase() throws IOException {
 		closeGraphDb();
+		graphDb = null;
 		FileUtils.deleteRecursively(new File(DB_PATH));
 	}
 
