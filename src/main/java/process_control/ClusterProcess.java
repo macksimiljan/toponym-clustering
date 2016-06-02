@@ -11,6 +11,8 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
 
 import clustering.GraphProperties;
+import clustering.Statistics;
+import clustering.Visualisation;
 import database.DatabaseAccess;
 import etl.Extraction;
 import etl.Load;
@@ -28,9 +30,9 @@ public class ClusterProcess {
 	public static Logger log = Logger.getLogger(ClusterProcess.class);
 
 	/** Location of the raw data in the file system, e.g. worldcitiespop.txt */
-	static final String locationRawData = "./src/main/resources/worldcitiespop_small.txt";
+	static final String locationRawData = "./src/main/resources/worldcitiespop.txt";
 	/** Location of the extracted data in the file system. */
-	static final String locationExtractedData = "./src/main/resources/extractedData_small.csv";
+	static final String locationExtractedData = "./src/main/resources/extractedData.csv";
 	/** 'true' iff the graph database is already loaded. */
 	static final boolean isGraphLoaded = true;
 
@@ -97,7 +99,20 @@ public class ClusterProcess {
 		// 3: add subsumed cities count to the database
 		log.info("Adding property 'subsumedCities' ... ");
 		properties.addPropertySubsumedCities();
-
+		
+		// 4: determine distribution of letters, bigrams, and trigrams
+		log.info("Determining distribution of letters, bigrams, and trigrams ... ");
+		Statistics statistics = new Statistics(properties);
+		
+		System.out.println("\nletter distribution:");
+		Visualisation.printDistributionMap(statistics.getLetterDistribution(), statistics.getNumberLetterTokens());
+		
+		System.out.println("\nbigram distribution:");
+		Visualisation.printDistributionMap(statistics.getBigramDistribution(), statistics.getNumberBigramTokens());
+		
+		System.out.println("\ntrigram distribution:");
+		Visualisation.printDistributionMap(statistics.getTrigramDistribution(), statistics.getNumberTrigramTokens());
+		
 		// clean up
 		log.info("Closing database ... ");
 		DatabaseAccess.closeGraphDb();
