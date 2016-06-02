@@ -48,9 +48,17 @@ public class Visualisation {
 			String bar = "=";
 			for (int i = 1; i < normValue; i++)
 				bar += "=";
-			String delimiter = (normValue < 10) ? "  " : " ";
-			System.out.println(key + ": " + value + "\t(" + normValue + "%) " + delimiter + bar);
+			
+			String valueStr = String.valueOf(value);
+			while ((valueStr.length() - 10) < 0) {
+				valueStr = " "+valueStr;
+			}
+			
+			String delimiter = (normValue < 10) ? " " : "";
+			System.out.println(key + ": " + valueStr + "\t(" + delimiter + normValue + "%)  " + bar);
 		}
 	}
+	
+	//TODO: logarithmisch skalieren
 
 }

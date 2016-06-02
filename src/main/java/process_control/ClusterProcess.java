@@ -104,13 +104,16 @@ public class ClusterProcess {
 		log.info("Determining distribution of letters, bigrams, and trigrams ... ");
 		Statistics statistics = new Statistics(properties);
 		
-		System.out.println("\nletter distribution:");
+		System.out.println("\nletter distribution "
+				+ "(#tokens: "+statistics.getNumberLetterTokens()+", #types: "+statistics.getNumberLetterTypes()+"):");
 		Visualisation.printDistributionMap(statistics.getLetterDistribution(), statistics.getNumberLetterTokens());
 		
-		System.out.println("\nbigram distribution:");
-		Visualisation.printDistributionMap(statistics.getBigramDistribution(), statistics.getNumberBigramTokens());
-		
-		System.out.println("\ntrigram distribution:");
+//		System.out.println("\nbigram distribution "
+//				+ "(#tokens: "+statistics.getNumberBigramTokens()+", #types: "+statistics.getNumberBigramTypes()+"):");
+//		Visualisation.printDistributionMap(statistics.getBigramDistribution(), statistics.getNumberBigramTokens());
+//		
+		System.out.println("\ntrigram distribution "
+				+ "(#tokens: "+statistics.getNumberTrigramTokens()+", #types: "+statistics.getNumberTrigramTypes()+"):");
 		Visualisation.printDistributionMap(statistics.getTrigramDistribution(), statistics.getNumberTrigramTokens());
 		
 		// clean up
