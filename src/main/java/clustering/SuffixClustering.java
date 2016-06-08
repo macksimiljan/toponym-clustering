@@ -161,9 +161,7 @@ public class SuffixClustering {
 		return candidates;
 	}
 
-	public Set<Suffix> filterClusterSet(Set<Suffix> clusters) {
-		return null;
-	}
+	
 
 	/**
 	 * Calculates the min and max size measure for a cluster candidate. Min and

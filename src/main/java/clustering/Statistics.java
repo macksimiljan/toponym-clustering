@@ -1,6 +1,12 @@
 package clustering;
 
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -82,7 +88,17 @@ public class Statistics {
 			this.calculateNGrams();
 		
 		return this.trigramDistribution.size();
+	}	
+	
+	public float getNumberBigramForUniformDistrib() {
+		return this.getNumberBigramTokens()/1f*this.getNumberBigramTypes();
 	}
+	
+	public float getNumberTrigramForUniformDistrib() {
+		return this.getNumberTrigramTokens()/1f*this.getNumberTrigramTypes();
+	}
+	
+	
 	
 	/**
 	 * Returns the distribution of letters within the city names.
@@ -115,6 +131,41 @@ public class Statistics {
 			this.calculateNGrams();
 		
 		return this.trigramDistribution;
+	}
+	
+	public Map<Character, Integer> sortLetterDistributionByCount() {
+		return this.sortDistribByCount(this.letterDistribution);
+	}
+	
+	public Map<String, Integer> sortBigramDistributionByCount() {
+		return this.sortDistribByCount(this.bigramDistribution);
+	}
+	
+	public Map<String, Integer> sortTrigramDistributionByCount() {
+		return this.sortDistribByCount(this.trigramDistribution);
+	}
+	
+	private <K extends Comparable<? super K>, V extends Comparable<? super V>> Map<K,V> sortDistribByCount(Map<K,V> distrib) {
+		Map<K, V> result = new LinkedHashMap<>();
+		
+		List<Map.Entry<K, V>> list = new LinkedList<>(distrib.entrySet());
+		
+		Collections.sort( list, new Comparator<Map.Entry<K, V>>() {
+			@Override
+		    public int compare( Map.Entry<K, V> o1, Map.Entry<K, V> o2 ) {
+				int z = -1 * o1.getValue().compareTo(o2.getValue());
+				if (z == 0)
+					z = o1.getKey().compareTo(o2.getKey());
+					
+				return z;
+			}
+		} );
+
+		for (Map.Entry<K, V> entry : list) {
+			result.put( entry.getKey(), entry.getValue() );
+		}
+		
+		return result;
 	}
 	
 	/**

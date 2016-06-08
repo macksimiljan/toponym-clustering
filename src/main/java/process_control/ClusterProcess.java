@@ -30,9 +30,9 @@ public class ClusterProcess {
 	public static Logger log = Logger.getLogger(ClusterProcess.class);
 
 	/** Location of the raw data in the file system, e.g. worldcitiespop.txt */
-	static final String locationRawData = "./src/main/resources/worldcitiespop.txt";
+	static final String locationRawData = "./src/main/resources/worldcitiespop_small.txt";
 	/** Location of the extracted data in the file system. */
-	static final String locationExtractedData = "./src/main/resources/extractedData.csv";
+	static final String locationExtractedData = "./src/main/resources/extractedData_small.csv";
 	/** 'true' iff the graph database is already loaded. */
 	static final boolean isGraphLoaded = true;
 
@@ -106,15 +106,16 @@ public class ClusterProcess {
 		
 		System.out.println("\nletter distribution "
 				+ "(#tokens: "+statistics.getNumberLetterTokens()+", #types: "+statistics.getNumberLetterTypes()+"):");
-		Visualisation.printDistributionMap(statistics.getLetterDistribution(), statistics.getNumberLetterTokens());
+		Visualisation.printDistributionMap(statistics.sortLetterDistributionByCount(), statistics.getNumberLetterTokens());
 		
-//		System.out.println("\nbigram distribution "
-//				+ "(#tokens: "+statistics.getNumberBigramTokens()+", #types: "+statistics.getNumberBigramTypes()+"):");
-//		Visualisation.printDistributionMap(statistics.getBigramDistribution(), statistics.getNumberBigramTokens());
-//		
+		System.out.println("\nbigram distribution "
+				+ "(#tokens: "+statistics.getNumberBigramTokens()+", #types: "+statistics.getNumberBigramTypes()+"):");
+		Visualisation.printDistributionMap(statistics.sortBigramDistributionByCount(), statistics.getNumberBigramTokens());
+		
 		System.out.println("\ntrigram distribution "
 				+ "(#tokens: "+statistics.getNumberTrigramTokens()+", #types: "+statistics.getNumberTrigramTypes()+"):");
-		Visualisation.printDistributionMap(statistics.getTrigramDistribution(), statistics.getNumberTrigramTokens());
+		Visualisation.printDistributionMap(statistics.sortTrigramDistributionByCount(), statistics.getNumberTrigramTokens());
+		
 		
 		// clean up
 		log.info("Closing database ... ");

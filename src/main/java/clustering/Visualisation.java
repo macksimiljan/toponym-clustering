@@ -1,7 +1,17 @@
 package clustering;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Map;
+
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartFrame;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.data.general.DefaultPieDataset;
 
 /**
  * Contains visualization methods.
@@ -59,6 +69,34 @@ public class Visualisation {
 		}
 	}
 	
+	/**
+	 * Exports a simple bar diagram to the file system. The length of the bar ranges
+	 * from 1 to 100 and represents the percentage of the counts.
+	 * @param path
+	 * @param map
+	 * @param base
+	 * @throws IOException
+	 */
+	public static <T> void exportDistributionMap(String path, Map<T, Integer> map, int base) throws IOException {
+		
+		try (PrintWriter writer = new PrintWriter (new BufferedWriter (new FileWriter(path)));) {
+			for (T key : map.keySet()) {
+				int value = map.get(key);
+				int normValue = Math.round(value * 100.0f / base);
+				String bar = "=";
+				for (int i = 1; i < normValue; i++)
+					bar += "=";
+				
+				String valueStr = String.valueOf(value);
+				while ((valueStr.length() - 10) < 0) {
+					valueStr = " "+valueStr;
+				}
+				
+				writer.println(key + "\t" + valueStr + "\t" + normValue + "\t" + bar);
+			}
+		}		
+	}
+	
 	//TODO: logarithmisch skalieren
-
+	
 }
