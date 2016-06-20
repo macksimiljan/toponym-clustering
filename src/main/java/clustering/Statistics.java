@@ -20,6 +20,11 @@ import representation.Suffix;
  */
 public class Statistics {
 	
+	/** Start of word. */
+	public final char sow = '$';
+	/** End of word. */
+	public final char eow = '#';
+	
 	/** Graph properties. */
 	private GraphProperties properties;
 	
@@ -38,6 +43,12 @@ public class Statistics {
 	private int numberTrigramTokens;
 		
 	
+	/**
+	 * Creates new statistics.
+	 * 
+	 * @param properties
+	 *				Graph properties.
+	 */
 	public Statistics (GraphProperties properties) {
 		this.properties = properties;
 		this.letterDistribution = new TreeMap<Character, Integer>();
@@ -172,8 +183,7 @@ public class Statistics {
 	 * Calculates the n-grams (n=1, n=2, n=3) for all city names.
 	 */
 	private void calculateNGrams() {
-		final char sow = '$'; // start of word
-		final char eow = '#'; // end of word
+		
 		
 		// determine n grams
 		Set<Suffix> cityNames = properties.getCityNames();

@@ -50,7 +50,7 @@ public class SuffixClusteringTest {
 	@Test
 	public void testDetermineClusterCandidatesByProportion() {
 		System.out.println("determine cluster candidates");
-		SuffixClustering clustering = new SuffixClustering(db, prop, 0.8f, 0.05f, 0.05f);
+		SuffixClustering clustering = new SuffixClustering(db, prop, null, 0.8f, 0.05f, 0.05f);
 		try {
 			Set<Suffix> candidates = clustering.determineClusterCandidatesByProportion();
 			System.out.println("\n\nCandidates:\n" + candidates);
@@ -67,9 +67,9 @@ public class SuffixClusteringTest {
 	 */
 	@Test
 	public void testCalculateMinMax() {
-		SuffixClustering clustering = new SuffixClustering(db, prop, 0.8f, 0.045f, 0.0324f);
+		SuffixClustering clustering = new SuffixClustering(db, prop, null, 0.8f, 0.045f, 0.0324f);
 		clustering.calculateMinMax(123);
-		int actual = clustering.getMinClusterSize();
+		long actual = clustering.getMinClusterSize();
 		assertEquals(5, actual);
 		actual = clustering.getMaxClusterSize();
 		assertEquals(119, actual);

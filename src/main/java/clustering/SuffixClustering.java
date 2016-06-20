@@ -3,13 +3,17 @@ package clustering;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Notification;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 
 import representation.EdgeTypes;
@@ -30,6 +34,9 @@ public class SuffixClustering {
 
 	/** Graph properties. */
 	private final GraphProperties properties;
+	
+	/** Graph statistics. */
+	private final Statistics statistics;
 
 	/**
 	 * The minimum of cities a suffix node subsumes such that it represents a
@@ -37,6 +44,7 @@ public class SuffixClustering {
 	 */
 	private int minClusterSize;
 	
+	/** Minimal cluster size wrt. to the tree (each last letter forms a tree). */
 	private final float minPercent;
 
 	/**
@@ -45,6 +53,7 @@ public class SuffixClustering {
 	 */
 	private int maxClusterSize;
 	
+	/** Maximal cluster size wrt. to the tree (each last letter forms a tree). */
 	private final float maxPercent;
 
 	/**
@@ -74,21 +83,53 @@ public class SuffixClustering {
 	 *            Graph database.
 	 * @param properties
 	 *            Graph properties.
+	 * @param statistics
+	 *            Graph statistics.
+	 */
+	public SuffixClustering(GraphDatabaseService graphDb, GraphProperties properties, Statistics statistics) {
+		this(graphDb, properties, statistics, 0f, 0f, 0f);
+	}
+	
+	/**
+	 * Constructor.
+	 * 
+	 * @param graphDb
+	 *            Graph database.
+	 * @param properties
+	 *            Graph properties.
+	 * @param statistics
+	 *            Graph statistics.
 	 * 
 	 * @param proportion
 	 *            How many cities of the parent node must the current node
 	 *            subsume in order to represent a cluster potentially.
 	 */
-	public SuffixClustering(GraphDatabaseService graphDb, GraphProperties properties, float proportion) {
-		this(graphDb, properties, proportion, 0f, 0f);
-		
+	public SuffixClustering(GraphDatabaseService graphDb, GraphProperties properties, Statistics statistics, float proportion) {
+		this(graphDb, properties, statistics, proportion, 0f, 0f);		
 	}
 	
-	public SuffixClustering(GraphDatabaseService graphDb, GraphProperties properties, float proportion, float minPercent, float maxPercent) {
+	/**
+	 * 
+	 * @param graphDb
+	 *            Graph database.
+	 * @param properties
+	 *            Graph properties.
+	 * @param statistics
+	 *            Graph statistics.
+	 * @param proportion
+	 *            How many cities of the parent node must the current node
+	 *            subsume in order to represent a cluster potentially.
+	 * @param minPercent
+	 *             Minimal cluster size wrt. to the tree (each last letter forms a tree).
+	 * @param maxPercent
+	 *             Maximal cluster size wrt. to the tree (each last letter forms a tree).
+	 */
+	public SuffixClustering(GraphDatabaseService graphDb, GraphProperties properties, Statistics statistics, float proportion, float minPercent, float maxPercent) {
 		if (minPercent < 0 || maxPercent < 0 || minPercent > 1 || maxPercent > 1)
 			throw new IllegalArgumentException("You have to specify a value from (0,1) for percentMin/Max.");
 		this.graphDb = graphDb;
 		this.properties = properties;
+		this.statistics = statistics;
 		this.proportion = proportion;
 		this.minPercent = minPercent;
 		this.maxPercent = maxPercent;
@@ -111,7 +152,7 @@ public class SuffixClustering {
 				// define min-/max cluster size for this tree
 				if (!root.getUnderlyingNode().hasProperty(Suffix.KEY_SUBSCITIES))
 					throw new NoSuchFieldException("You need to determined subsumend cities for this method.");
-				int noCities = (Integer) root.getUnderlyingNode().getProperty(Suffix.KEY_SUBSCITIES);
+				int noCities = ((Number) root.getUnderlyingNode().getProperty(Suffix.KEY_SUBSCITIES)).intValue();
 				calculateMinMax(noCities);
 
 				// initialize queue
@@ -126,7 +167,7 @@ public class SuffixClustering {
 
 					// get first node of the queue
 					Node parent = queue.remove().getUnderlyingNode();
-					float expected = ((int) parent.getProperty(Suffix.KEY_SUBSCITIES)) * this.proportion;
+					float expected = ((Number) parent.getProperty(Suffix.KEY_SUBSCITIES)).intValue() * this.proportion;
 //					System.out.println(" p:" + parent.getProperty(Suffix.KEY_STR) + "\t subsCit:"
 //							+ parent.getProperty(Suffix.KEY_SUBSCITIES) + "\t proportion:" + expected);
 
@@ -136,7 +177,7 @@ public class SuffixClustering {
 					while (iterator.hasNext()) {
 						Node child = iterator.next().getEndNode();
 						// check for cluster candidate
-						int subsumedCities = (int) child.getProperty(Suffix.KEY_SUBSCITIES);
+						int subsumedCities = ((Number) child.getProperty(Suffix.KEY_SUBSCITIES)).intValue();
 //						System.out.println(" c:" + child.getProperty(Suffix.KEY_STR) + "\t subsCit:" + subsumedCities);
 
 						if (subsumedCities >= this.minClusterSize) {
@@ -160,8 +201,163 @@ public class SuffixClustering {
 
 		return candidates;
 	}
-
 	
+	/**
+	 * Returns the cluster candidates in a set.
+	 * 
+	 * @return Cluster candidates.
+	 */
+	public Set<Suffix> getClusterCandidates() {
+		Set<Suffix> candidates = new HashSet<Suffix>();
+		
+		String cypher = "MATCH (n:"+Suffix.LABEL+") WHERE n."+Suffix.KEY_CLUSTER+" = true RETURN n";
+		try(Transaction tx = this.graphDb.beginTx();
+				Result result = this.graphDb.execute(cypher)) {
+			
+			while(result.hasNext()) {
+				Map<String,Object> row = result.next();
+		        for (Entry<String,Object> column : row.entrySet()) {
+		            Suffix s = new Suffix((Node) column.getValue());
+		            candidates.add(s);
+		        }
+			}
+		}
+		
+		return candidates;
+	}
+
+	/**
+	 * Iterates through the graph and determines suffix nodes which represent
+	 * cluster candidates. Uses n-gram distribution as background knowledge.
+	 * Cluster candidates are annotated in the DB with a property.
+	 *  
+	 * @throws NoSuchFieldException
+	 *             If the property 'subsumed cities' is not part of the graph.
+	 */
+	public void determineClusterCandidatesByNGrams() throws NoSuchFieldException {
+		// iterate over each root
+		for (Suffix root : properties.getRootNodes()) {			
+			// define min-/max cluster size for this tree
+			try (Transaction tx = this.graphDb.beginTx()) {
+				if (!root.getUnderlyingNode().hasProperty(Suffix.KEY_SUBSCITIES))
+					throw new NoSuchFieldException("You need to determined subsumend cities for this method.");
+				int noCities = ((Number) root.getUnderlyingNode().getProperty(Suffix.KEY_SUBSCITIES)).intValue();
+				calculateMinMax(noCities);
+			}			
+			
+			// initialize queue: contains parents of possible candidates
+			Queue<Suffix> queue = new LinkedList<Suffix>();
+			queue.add(root);
+			// iterate through the tree
+			while (queue.size() > 0) {
+				// get first node of the queue
+				Node parent = null;
+				Map<String, Object> parentProperties = null;
+				try (Transaction tx = this.graphDb.beginTx()) {
+					parent = queue.remove().getUnderlyingNode();
+					parentProperties = parent.getAllProperties();
+				}
+				
+				// iterate through its children
+				boolean isInheritance = parentProperties.containsKey(Suffix.KEY_CLUSTER);
+				Set<Node> candidates = new HashSet<Node>();
+				Iterator<Relationship> iterator = null;
+				try (Transaction tx = this.graphDb.beginTx()) {
+					iterator = parent.getRelationships(Direction.OUTGOING, EdgeTypes.IS_SUFFIX_OF).iterator();
+				}
+				while (iterator.hasNext()) {
+					// get information of the current child
+					Node child = null;
+					int subsCitiesChild = -1;
+					Map<String, Object> childProperties = null;
+					try (Transaction tx = this.graphDb.beginTx()) {
+						child = iterator.next().getEndNode();
+						childProperties = child.getProperties(Suffix.KEY_STR, Suffix.KEY_SUBSCITIES);
+						subsCitiesChild = ((Number) childProperties.get(Suffix.KEY_SUBSCITIES)).intValue();
+					}
+					
+					// ##### decide whether child is cluster candidate #####
+					if (subsCitiesChild >= this.minClusterSize) {
+						// child or its children (!) could be a candidate
+						queue.add(new Suffix(child));
+						
+						boolean isSignificant = calculateSignificance(childProperties, parentProperties);
+
+						if (subsCitiesChild <= this.maxClusterSize) {
+							isInheritance &= isSignificant;
+							if (isSignificant)
+								candidates.add(child);
+						}
+					}
+				} // end iteration children
+				
+				// POST-PROCESSING
+				// a node is no candidate iff all its relevant sisters are candidates, too
+				if (!isInheritance && candidates.size() > 0) {
+					for (Node candidate : candidates) {
+						try (Transaction tx = this.graphDb.beginTx()) {
+							candidate.setProperty(Suffix.KEY_CLUSTER, true);
+							tx.success();
+						}
+					}
+				}
+				
+			} // end tree iteration				
+		} // end iteration whole graph
+		
+	}
+	
+	/**
+	 * Calculates whether a suffix node is a cluster candidate, i.e. is significant.
+	 * 
+	 * @param childProperties
+	 * 				Properties of the current suffix node (the child).
+	 * @param parentProperties 
+	 * 				Properties of the parent node of the current suffix node.
+	 * 
+	 * @return 'true' iff significant.
+	 */
+	private boolean calculateSignificance(Map<String, Object> childProperties, Map<String, Object> parentProperties) {
+		boolean sign = false;
+		
+		// get values
+		String strChild = (String) childProperties.get(Suffix.KEY_STR); // e.g.: "zell"
+		char letter = strChild.charAt(0); // e.g.: "z"
+		String bigram = (strChild.length() > 1) ? strChild.substring(0, 2) : ""+letter+statistics.eow; // e.g.: "ze"
+		String trigram = (strChild.length() > 2) ? strChild.substring(0, 3) : bigram+statistics.eow; // e.g. "zel"
+		char context1 = (strChild.length() > 1) ? strChild.charAt(1) : statistics.eow; // e.g.: "e"
+		String context2 = (strChild.length() > 2) ? strChild.substring(1, 3) : ""+context1+statistics.eow; // e.g.: "el"
+		
+		Map<Character, Integer> letterDistribution = this.statistics.getLetterDistribution();
+		Map<String, Integer> bigramDistribution = this.statistics.getBigramDistribution();
+		Map<String, Integer> trigramDistribution = this.statistics.getTrigramDistribution();
+		
+		// calculate actual proportion
+		float actual = 1f * ((Number) childProperties.get(Suffix.KEY_SUBSCITIES)).intValue()/((Number) parentProperties.get(Suffix.KEY_SUBSCITIES)).intValue();
+				
+		// considering no context, e.g. P(z)
+		float p0 = 1f * letterDistribution.get(letter) / this.statistics.getNumberLetterTokens();
+		
+		// considering context of one letter, e.g. P(z|e)
+		float pContext = 1f * letterDistribution.get(context1) / this.statistics.getNumberLetterTokens(); // e.g. P(e)
+		float pBigram = 1f * bigramDistribution.get(bigram) / this.statistics.getNumberBigramTokens(); // e.g. P(ze)
+		float p1 = pBigram / pContext;
+		
+		// considering context of two letters, e.g. P(z|el)
+		pContext = 1f * bigramDistribution.get(context2) / this.statistics.getNumberBigramTokens(); // e.g. P(el)
+		float pTrigram = 1f * trigramDistribution.get(trigram) / this.statistics.getNumberTrigramTokens();
+		float p2 = pTrigram / pContext;
+		
+		// calculate significance
+		float weight0 = 0.2f, weight1 = 0.3f, weight2 = 0.5f; // linear interpolation, sum(weights) := 1
+		float p = weight0 * p0 + weight1 * p1 + weight2 * p2;
+		
+		float alpha = 1.5f;
+		if (actual > p * alpha)
+			sign = true;
+		
+		return sign;
+	}
 
 	/**
 	 * Calculates the min and max size measure for a cluster candidate. Min and
@@ -174,9 +370,24 @@ public class SuffixClustering {
 	 *             If proportions are not correct.
 	 */
 	public void calculateMinMax(int noCities) throws IllegalArgumentException {
-		this.minClusterSize = Math.max(2, (int) (noCities * this.minPercent));
-		this.maxClusterSize = Math.min(noCities - 1, (int) (noCities - noCities * this.maxPercent));
+		this.minClusterSize = Math.max(3, (int) (noCities * this.minPercent));
+		this.maxClusterSize = Math.min(noCities - 2, (int) (noCities - noCities * this.maxPercent));
 	}
-
+	
+	/**
+	 * Removes the property 'clusterCandidate' from the graph.
+	 */
+	public void removeClusterCandidateProperty() {
+		String cypher = "MATCH (n:"+Suffix.LABEL+") REMOVE n."+Suffix.KEY_CLUSTER;
+		
+		try(Transaction tx = this.graphDb.beginTx();
+				Result result = this.graphDb.execute(cypher)) {
+			
+			//... 
+			tx.success();
+		}
+	}
+	
+	
 	
 }

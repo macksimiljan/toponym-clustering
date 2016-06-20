@@ -1,8 +1,0 @@
-CREATE CONSTRAINT ON (s:Suffix) ASSERT s.str IS UNIQUE;
-
-USING PERIODIC COMMIT
-LOAD CSV WITH HEADERS FROM 'path/to/file' AS line
-
-CREATE (c:city {latitude: TOFLOAT(line.Latitude), longitude: TOFLOAT(line.Longitude)})
-MERGE (s:suffix {str: line.City})
-;

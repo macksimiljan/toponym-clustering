@@ -26,6 +26,9 @@ public class Suffix {
 	 * associated to this suffix.
 	 */
 	public static final String KEY_SUBSCITIES = "subsumedCities";
+	
+	/** Property label for cluster candidates, value in {true, false}. */
+	public static final String KEY_CLUSTER = "clusterCandidate";
 
 	/** The underlying node of this city. */
 	private final Node underlyingNode;
@@ -60,6 +63,19 @@ public class Suffix {
 			s = (String) this.underlyingNode.getProperty(KEY_STR);
 		}
 		return s;
+	}
+	
+	/**
+	 * Returns the number of subsumed cities.
+	 * 
+	 * @return Number of subsumed cities.
+	 */
+	public int getSubsumedCities() {
+		int i = -1;
+		try (Transaction tx = DatabaseAccess.getGraphDb().beginTx()) {
+			i = ((Number) this.underlyingNode.getProperty(KEY_SUBSCITIES)).intValue();
+		}
+		return i;
 	}
 
 	@Override

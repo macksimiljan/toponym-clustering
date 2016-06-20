@@ -1,6 +1,9 @@
 package process_control;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,7 +15,7 @@ import org.neo4j.graphdb.Transaction;
 
 import clustering.GraphProperties;
 import clustering.Statistics;
-import clustering.Visualisation;
+import clustering.SuffixClustering;
 import database.DatabaseAccess;
 import etl.Extraction;
 import etl.Load;
@@ -41,8 +44,9 @@ public class ClusterProcess {
 	 * 
 	 * @param args
 	 *            console arguments, not used yet
+	 * @throws NoSuchFieldException 
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws NoSuchFieldException {
 		System.out.println("===== Toponym Clustering =====\n");
 		log.info("start");
 		long timeStart = System.currentTimeMillis();
@@ -104,17 +108,50 @@ public class ClusterProcess {
 		log.info("Determining distribution of letters, bigrams, and trigrams ... ");
 		Statistics statistics = new Statistics(properties);
 		
-		System.out.println("\nletter distribution "
-				+ "(#tokens: "+statistics.getNumberLetterTokens()+", #types: "+statistics.getNumberLetterTypes()+"):");
-		Visualisation.printDistributionMap(statistics.sortLetterDistributionByCount(), statistics.getNumberLetterTokens());
+//		String pathLetter = "target/letters.csv", pathBigram = "target/bigrams.csv", pathTrigram = "target/trigrams.csv";
+//		
+//		try {
+//			log.info("letter distribution (#tokens: "+statistics.getNumberLetterTokens()+", #types: "+statistics.getNumberLetterTypes()+")");
+//			log.info("printing letter distribution to '"+pathLetter+"'");
+//			Visualisation.exportDistributionMap(pathLetter, statistics.sortLetterDistributionByCount(), statistics.getNumberLetterTokens());
+//			
+//			log.info("bigram distribution (#tokens: "+statistics.getNumberBigramTokens()+", #types: "+statistics.getNumberBigramTypes()+")");			
+//			log.info("printing bigram distribution to '"+pathBigram+"'");
+//			Visualisation.exportDistributionMap(pathBigram, statistics.sortBigramDistributionByCount(), statistics.getNumberBigramTokens());
+//			
+//			log.info("trigram distribution (#tokens: "+statistics.getNumberTrigramTokens()+", #types: "+statistics.getNumberTrigramTypes()+")");
+//			log.info("printing trigram distribution to '"+pathTrigram+"'");
+//			Visualisation.exportDistributionMap(pathTrigram, statistics.sortTrigramDistributionByCount(), statistics.getNumberTrigramTokens());	
+//		} catch (IOException e) {
+//			log.error("Error during export of distributions.");
+//		}
 		
-		System.out.println("\nbigram distribution "
-				+ "(#tokens: "+statistics.getNumberBigramTokens()+", #types: "+statistics.getNumberBigramTypes()+"):");
-		Visualisation.printDistributionMap(statistics.sortBigramDistributionByCount(), statistics.getNumberBigramTokens());
+		// 5: clustering
+//		SuffixClustering clusteringOld = new SuffixClustering(graphDb, properties, statistics, 0.05f, 0.1f, 0.05f);
+//		Set<Suffix> clustersOld = clusteringOld.determineClusterCandidatesByProportion();
+//		System.out.println("Cluster size without background knowledge: "+clustersOld.size());
+//		try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter("target/oldCluster.txt")))) {
+//			for (Suffix c : clustersOld)
+//				writer.println(c.getStr()+"\t"+c.getSubsumedCities());
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 		
-		System.out.println("\ntrigram distribution "
-				+ "(#tokens: "+statistics.getNumberTrigramTokens()+", #types: "+statistics.getNumberTrigramTypes()+"):");
-		Visualisation.printDistributionMap(statistics.sortTrigramDistributionByCount(), statistics.getNumberTrigramTokens());
+		SuffixClustering clustering = new SuffixClustering(graphDb, properties, statistics);
+		log.info("Removing cluster candidate property ... ");
+		clustering.removeClusterCandidateProperty();
+		log.info("Clustering ... ");
+		clustering.determineClusterCandidatesByNGrams();
+		Set<Suffix> clusters = clustering.getClusterCandidates();
+		log.info("Cluster size with background knowledge: "+clusters.size());
+		try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter("target/cluster.txt")))) {
+		for (Suffix c : clusters)
+			writer.println(c.getStr()+"\t"+c.getSubsumedCities());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		
 		// clean up
@@ -123,7 +160,7 @@ public class ClusterProcess {
 
 		long timeEnd = System.currentTimeMillis();
 		log.info("end");
-		System.out.println("\n===== End (" + (timeEnd - timeStart) + "ms) =====");
+		System.out.println("\n===== End (" + (timeEnd - timeStart)/1000 + "s) =====");
 	}
 
 }

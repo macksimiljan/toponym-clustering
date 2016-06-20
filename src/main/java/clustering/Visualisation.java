@@ -82,7 +82,7 @@ public class Visualisation {
 		try (PrintWriter writer = new PrintWriter (new BufferedWriter (new FileWriter(path)));) {
 			for (T key : map.keySet()) {
 				int value = map.get(key);
-				int normValue = Math.round(value * 100.0f / base);
+				float normValue = value * 100.0f / base;
 				String bar = "=";
 				for (int i = 1; i < normValue; i++)
 					bar += "=";
