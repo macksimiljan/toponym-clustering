@@ -121,7 +121,7 @@ public class Suffix {
 	}
 
 	public String toString() {
-		return "Suffix: " + getStr();
+		return "\"suffix\": {\"str\":\""+getStr()+"\", \"subsumedCities\":"+getSubsumedCities()+"}";
 	}
 
 }

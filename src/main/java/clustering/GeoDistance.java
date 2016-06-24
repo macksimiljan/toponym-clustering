@@ -58,12 +58,15 @@ public class GeoDistance {
 	 */
 	public void calcAvgEuclideanDist(Suffix s) {
 		// 0: check whether euclidean distance statistics is already calculated
-		boolean hasEuclideanDist;
 		try (Transaction tx = this.graphDb.beginTx()) {
-			hasEuclideanDist = s.getUnderlyingNode().hasRelationship(EdgeTypes.EUCLIDEAN_DIST);
-		}
-		if (hasEuclideanDist)
-			return;
+			boolean hasEuclideanDist = s.getUnderlyingNode().hasRelationship(EdgeTypes.EUCLIDEAN_DIST);
+			if (hasEuclideanDist) {
+				Node node = s.getUnderlyingNode().getRelationships(EdgeTypes.EUCLIDEAN_DIST)
+						.iterator().next().getOtherNode(s.getUnderlyingNode());
+				this.currGeoStat = new GeoStatistics(node);
+				return;
+			}
+		}		
 		
 		
 		// 1: calculate Euclidean distance statistics
@@ -87,8 +90,7 @@ public class GeoDistance {
 				
 				double d = euclDist.compute(location1, location2);
 				stat.addValue(d);
-			}
-		
+			}		
 		
 		double avg = stat.getMean();
 		double max = stat.getMax();

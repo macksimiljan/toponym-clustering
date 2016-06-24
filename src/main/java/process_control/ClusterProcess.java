@@ -133,7 +133,7 @@ public class ClusterProcess {
 		}
 		
 		// 5: clustering
-		String clusterExportPath = "target/cluster.txt";
+		String clusterExportPath = "target/cluster.json";
 		SuffixClustering clustering = new SuffixClustering(graphDb, properties, statistics);
 		log.info("Removing cluster candidate property ... ");
 		clustering.removeClusterCandidateProperty();
@@ -148,13 +148,14 @@ public class ClusterProcess {
 		log.info("Cluster size with background knowledge: "+clusters.size());
 		log.info("Writing clusters to "+clusterExportPath+" ...");
 		try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(clusterExportPath)))) {
-			GeoDistance geoDistance;			
-			for (Suffix c : clusters) {
-				geoDistance = new GeoDistance(graphDb);
+			GeoDistance geoDistance = new GeoDistance(graphDb);		
+			writer.println("{\"clusters\": [");
+			for (Suffix c : clusters) {				
 				geoDistance.calcAvgEuclideanDist(c);
 				GeoStatistics currGeoStat = geoDistance.getCurrGeoStatistics();
-				writer.println(c.getStr()+"\t"+c.getSubsumedCities()+"\t"+currGeoStat.toString());
+				writer.println("{"+c.toString()+", "+currGeoStat.toString()+"}");
 			}
+			writer.println("]}");
 		} catch (IOException e) {
 			log.error("Exporting clusters failed!");
 			e.printStackTrace();

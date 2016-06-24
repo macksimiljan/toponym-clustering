@@ -110,10 +110,10 @@ public class GeoStatistics {
 	}
 
 	public String toString() {
-		return "GeoStatistics: min="+getMin()
-				+ "\t max="+getMax()
-				+ "\t avg="+getAvg()
-				+ "\t dev="+getDev();
+		return "\"geoStatistics\": {\"min\":"+getMin()
+				+ ", \"max\":"+getMax()
+				+ ", \"avg\":"+getAvg()
+				+ ", \"dev\":"+getDev()+"}";
 	}
 
 }
