@@ -13,12 +13,15 @@ import org.apache.log4j.Logger;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
 
+import clustering.GeoDistance;
 import clustering.GraphProperties;
 import clustering.Statistics;
 import clustering.SuffixClustering;
+import clustering.Visualisation;
 import database.DatabaseAccess;
 import etl.Extraction;
 import etl.Load;
+import representation.GeoStatistics;
 import representation.Suffix;
 
 /**
@@ -38,15 +41,16 @@ public class ClusterProcess {
 	static final String locationExtractedData = "./src/main/resources/extractedData_small.csv";
 	/** 'true' iff the graph database is already loaded. */
 	static final boolean isGraphLoaded = true;
+	/** 'true' iff n-gram distribution should not be exported to file system. */
+	static final boolean isExorted = true;
 
 	/**
 	 * Main steps for clustering toponyms.
 	 * 
 	 * @param args
 	 *            console arguments, not used yet
-	 * @throws NoSuchFieldException 
 	 */
-	public static void main(String[] args) throws NoSuchFieldException {
+	public static void main(String[] args) {
 		System.out.println("===== Toponym Clustering =====\n");
 		log.info("start");
 		long timeStart = System.currentTimeMillis();
@@ -66,6 +70,7 @@ public class ClusterProcess {
 				log.info("Loading data to neo4j ... ");
 				Load.loadCityAndSuffix(graphDb, data);
 			} catch (IOException e) {
+				log.error("Loading graph failed!");
 				e.printStackTrace();
 			}
 		}
@@ -108,48 +113,50 @@ public class ClusterProcess {
 		log.info("Determining distribution of letters, bigrams, and trigrams ... ");
 		Statistics statistics = new Statistics(properties);
 		
-//		String pathLetter = "target/letters.csv", pathBigram = "target/bigrams.csv", pathTrigram = "target/trigrams.csv";
-//		
-//		try {
-//			log.info("letter distribution (#tokens: "+statistics.getNumberLetterTokens()+", #types: "+statistics.getNumberLetterTypes()+")");
-//			log.info("printing letter distribution to '"+pathLetter+"'");
-//			Visualisation.exportDistributionMap(pathLetter, statistics.sortLetterDistributionByCount(), statistics.getNumberLetterTokens());
-//			
-//			log.info("bigram distribution (#tokens: "+statistics.getNumberBigramTokens()+", #types: "+statistics.getNumberBigramTypes()+")");			
-//			log.info("printing bigram distribution to '"+pathBigram+"'");
-//			Visualisation.exportDistributionMap(pathBigram, statistics.sortBigramDistributionByCount(), statistics.getNumberBigramTokens());
-//			
-//			log.info("trigram distribution (#tokens: "+statistics.getNumberTrigramTokens()+", #types: "+statistics.getNumberTrigramTypes()+")");
-//			log.info("printing trigram distribution to '"+pathTrigram+"'");
-//			Visualisation.exportDistributionMap(pathTrigram, statistics.sortTrigramDistributionByCount(), statistics.getNumberTrigramTokens());	
-//		} catch (IOException e) {
-//			log.error("Error during export of distributions.");
-//		}
+		if (!isExorted) {		
+			String pathLetter = "target/letters.csv", pathBigram = "target/bigrams.csv", pathTrigram = "target/trigrams.csv";			
+			try {
+				log.info("letter distribution (#tokens: "+statistics.getNumberLetterTokens()+", #types: "+statistics.getNumberLetterTypes()+")");
+				log.info("printing letter distribution to '"+pathLetter+"'");
+				Visualisation.exportDistributionMap(pathLetter, statistics.sortLetterDistributionByCount(), statistics.getNumberLetterTokens());
+				
+				log.info("bigram distribution (#tokens: "+statistics.getNumberBigramTokens()+", #types: "+statistics.getNumberBigramTypes()+")");			
+				log.info("printing bigram distribution to '"+pathBigram+"'");
+				Visualisation.exportDistributionMap(pathBigram, statistics.sortBigramDistributionByCount(), statistics.getNumberBigramTokens());
+				
+				log.info("trigram distribution (#tokens: "+statistics.getNumberTrigramTokens()+", #types: "+statistics.getNumberTrigramTypes()+")");
+				log.info("printing trigram distribution to '"+pathTrigram+"'");
+				Visualisation.exportDistributionMap(pathTrigram, statistics.sortTrigramDistributionByCount(), statistics.getNumberTrigramTokens());	
+			} catch (IOException e) {
+				log.error("Error during export of distributions.");
+			}
+		}
 		
 		// 5: clustering
-//		SuffixClustering clusteringOld = new SuffixClustering(graphDb, properties, statistics, 0.05f, 0.1f, 0.05f);
-//		Set<Suffix> clustersOld = clusteringOld.determineClusterCandidatesByProportion();
-//		System.out.println("Cluster size without background knowledge: "+clustersOld.size());
-//		try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter("target/oldCluster.txt")))) {
-//			for (Suffix c : clustersOld)
-//				writer.println(c.getStr()+"\t"+c.getSubsumedCities());
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-		
+		String clusterExportPath = "target/cluster.txt";
 		SuffixClustering clustering = new SuffixClustering(graphDb, properties, statistics);
 		log.info("Removing cluster candidate property ... ");
 		clustering.removeClusterCandidateProperty();
 		log.info("Clustering ... ");
-		clustering.determineClusterCandidatesByNGrams();
+		try {
+			clustering.determineClusterCandidatesByNGrams();
+		} catch (NoSuchFieldException e) {
+			log.error("Clustering failed!");
+			e.printStackTrace();
+		}
 		Set<Suffix> clusters = clustering.getClusterCandidates();
 		log.info("Cluster size with background knowledge: "+clusters.size());
-		try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter("target/cluster.txt")))) {
-		for (Suffix c : clusters)
-			writer.println(c.getStr()+"\t"+c.getSubsumedCities());
+		log.info("Writing clusters to "+clusterExportPath+" ...");
+		try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(clusterExportPath)))) {
+			GeoDistance geoDistance;			
+			for (Suffix c : clusters) {
+				geoDistance = new GeoDistance(graphDb);
+				geoDistance.calcAvgEuclideanDist(c);
+				GeoStatistics currGeoStat = geoDistance.getCurrGeoStatistics();
+				writer.println(c.getStr()+"\t"+c.getSubsumedCities()+"\t"+currGeoStat.toString());
+			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			log.error("Exporting clusters failed!");
 			e.printStackTrace();
 		}
 		

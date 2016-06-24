@@ -249,7 +249,8 @@ public class GraphProperties {
 	/**
 	 * Counts the cities which belongs to each node of the current layer. That
 	 * value is computed by summing up the subsumed city count of the child
-	 * nodes.
+	 * nodes. IMPORTANT: Does not work correctly if you have cities whose name
+	 * is suffix of another city's name!
 	 * 
 	 * @param bottomLayer
 	 *            The current layer. For that layer the property will be added.

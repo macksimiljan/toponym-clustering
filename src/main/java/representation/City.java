@@ -5,6 +5,9 @@ import org.neo4j.graphdb.DynamicLabel;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.Transaction;
+
+import database.DatabaseAccess;
 
 /**
  * 
@@ -51,7 +54,13 @@ public class City {
 	 * @return A float number representing the latitude.
 	 */
 	public float getLatitude() {
-		return (Float) this.underlyingNode.getProperty(LATITUDE);
+		float lat;
+		
+		try (Transaction tx = DatabaseAccess.getGraphDb().beginTx()) {
+			lat = (Float) this.underlyingNode.getProperty(LATITUDE);
+		}
+		
+		return lat;
 	}
 
 	/**
@@ -60,7 +69,13 @@ public class City {
 	 * @return A float number representing the longitude.
 	 */
 	public float getLongitude() {
-		return (Float) this.underlyingNode.getProperty(LONGITUDE);
+		float lon;
+		
+		try (Transaction tx = DatabaseAccess.getGraphDb().beginTx()) {
+			lon =  (Float) this.underlyingNode.getProperty(LONGITUDE);
+		}
+		
+		return lon;
 	}
 
 	/**

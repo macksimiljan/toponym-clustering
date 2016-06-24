@@ -16,6 +16,10 @@ public enum EdgeTypes implements RelationshipType {
 
 	/** (:suffix)-->(:city) */
 	IS_NAME_OF,
+	
 	/** (:suffix)-->(:suffix) */
-	IS_SUFFIX_OF;
+	IS_SUFFIX_OF,
+	
+	/** (:suffix)-->(:geoStatistics) */
+	EUCLIDEAN_DIST;
 }

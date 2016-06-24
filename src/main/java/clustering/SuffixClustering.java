@@ -11,11 +11,11 @@ import java.util.Set;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Notification;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 
+import process_control.ClusterProcess;
 import representation.EdgeTypes;
 import representation.Suffix;
 
@@ -280,19 +280,22 @@ public class SuffixClustering {
 					if (subsCitiesChild >= this.minClusterSize) {
 						// child or its children (!) could be a candidate
 						queue.add(new Suffix(child));
-						
-						boolean isSignificant = calculateSignificance(childProperties, parentProperties);
 
 						if (subsCitiesChild <= this.maxClusterSize) {
+							// child has to be significant and long enough (|suffix| >= 3)
+							boolean isSignificant = calculateSignificance(childProperties, parentProperties);
+							
 							isInheritance &= isSignificant;
+							
 							if (isSignificant)
 								candidates.add(child);
 						}
-					}
+					} // #### 
+					
 				} // end iteration children
 				
 				// POST-PROCESSING
-				// a node is no candidate iff all its relevant sisters are candidates, too
+				// (1) a node is no candidate iff its parent and all its relevant sisters are candidates, too
 				if (!isInheritance && candidates.size() > 0) {
 					for (Node candidate : candidates) {
 						try (Transaction tx = this.graphDb.beginTx()) {
@@ -300,12 +303,55 @@ public class SuffixClustering {
 							tx.success();
 						}
 					}
-				}
+					
+					// (2) if the parent is a candidate (ensured by the following IF) 
+					//		and at least one child is resp. is not a cluster candidate (ensured by the previous IF),
+					//		then the parent is no cluster candidate, e.g. [_orf [ dorf ] [ torf ] ]
+//					if (parentProperties.containsKey(Suffix.KEY_CLUSTER)) {
+//						try (Transaction tx = this.graphDb.beginTx()) {
+//							parent.removeProperty(Suffix.KEY_CLUSTER);
+//							tx.success();
+//						}
+//					}	
+					
+				} // end post-processing
 				
 			} // end tree iteration				
 		} // end iteration whole graph
 		
+		// global post-processing
+//		int countMod = applyGlobalPostprocessing();
+//		ClusterProcess.log.info("#(global mods): "+countMod);
+		
 	}
+	
+//	/**
+//	 * Applies global constraints to the graph, i.e. post-processing constraints
+//	 * which take into account the the whole graph.
+//	 * 
+//	 * @return Number of modifications of cluster candidate status.
+//	 */
+//	private int applyGlobalPostprocessing() {
+//		int countMod = 0;
+//		
+//		// TODO: not sure about this query ... 
+//		String cypher = "MATCH (p:"+Suffix.LABEL+")-[:"+EdgeTypes.IS_SUFFIX_OF+"]->(c:"+Suffix.LABEL+") "
+//				+ "WHERE p."+Suffix.KEY_CLUSTER+"=true AND c."+Suffix.KEY_CLUSTER+"=true "
+//						+ "SET p."+Suffix.KEY_CLUSTER+"=false " 
+//								+ "RETURN count(p) AS count";
+//		ClusterProcess.log.info("CYPHER: "+cypher);
+//		
+//		try(Transaction tx = this.graphDb.beginTx();
+//				Result result = this.graphDb.execute(cypher)) {			
+//			while (result.hasNext()) {
+//				Map<String, Object> row = result.next();
+//				countMod = (int) row.get("count");
+//			}
+//			tx.success();
+//		}
+//		
+//		return countMod;		
+//	}
 	
 	/**
 	 * Calculates whether a suffix node is a cluster candidate, i.e. is significant.
@@ -370,7 +416,7 @@ public class SuffixClustering {
 	 *             If proportions are not correct.
 	 */
 	public void calculateMinMax(int noCities) throws IllegalArgumentException {
-		this.minClusterSize = Math.max(3, (int) (noCities * this.minPercent));
+		this.minClusterSize = Math.max(5, (int) (noCities * this.minPercent));
 		this.maxClusterSize = Math.min(noCities - 2, (int) (noCities - noCities * this.maxPercent));
 	}
 	
@@ -379,6 +425,7 @@ public class SuffixClustering {
 	 */
 	public void removeClusterCandidateProperty() {
 		String cypher = "MATCH (n:"+Suffix.LABEL+") REMOVE n."+Suffix.KEY_CLUSTER;
+		ClusterProcess.log.info("CYPHER: "+cypher);
 		
 		try(Transaction tx = this.graphDb.beginTx();
 				Result result = this.graphDb.execute(cypher)) {

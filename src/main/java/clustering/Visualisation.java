@@ -6,13 +6,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Map;
 
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartFrame;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.data.category.DefaultCategoryDataset;
-import org.jfree.data.general.DefaultPieDataset;
-
 /**
  * Contains visualization methods.
  * 

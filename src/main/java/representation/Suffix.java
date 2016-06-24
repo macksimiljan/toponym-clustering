@@ -1,8 +1,14 @@
 package representation;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import org.neo4j.graphdb.DynamicLabel;
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 
 import database.DatabaseAccess;
@@ -27,9 +33,9 @@ public class Suffix {
 	 */
 	public static final String KEY_SUBSCITIES = "subsumedCities";
 	
-	/** Property label for cluster candidates, value in {true, false}. */
+	/** Property label for cluster candidates, value in {true, false} or not given. */
 	public static final String KEY_CLUSTER = "clusterCandidate";
-
+	
 	/** The underlying node of this city. */
 	private final Node underlyingNode;
 
@@ -76,6 +82,32 @@ public class Suffix {
 			i = ((Number) this.underlyingNode.getProperty(KEY_SUBSCITIES)).intValue();
 		}
 		return i;
+	}
+	
+	/**
+	 * Returns the city nodes (= locations) whose name ends with this suffix.
+	 * 
+	 * @param graphDb
+	 * 			A graph database.
+	 * @return Set of city nodes.
+	 */
+	public Set<City> getAssocCityLocations(GraphDatabaseService graphDb) {
+		Set<City> cities = new HashSet<City>();
+		
+		String cyper = "MATCH (n:"+LABEL+")-[*1..]->(c:"+City.LABEL+")"
+				+ " WHERE n.str='"+getStr()+"'"
+						+ " RETURN c AS city";
+		try (Transaction tx = graphDb.beginTx();
+				Result rs = graphDb.execute(cyper)) {
+			while (rs.hasNext()) {
+				Map<String, Object> row = rs.next();
+				Node node = (Node) row.get("city");
+				City city = new City(node);
+				cities.add(city);
+			}
+		}
+		
+		return cities;
 	}
 
 	@Override
